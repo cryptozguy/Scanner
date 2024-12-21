@@ -1,0 +1,176 @@
+
+AODA Compliance Scanner v1
+
+Code:
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Accessibility Compliance Tool</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/axe-core/4.6.2/axe.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        #results, #finalReport {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+        }
+        th {
+            background-color: #f4f4f4;
+        }
+        .btn {
+            margin: 10px 0;
+            padding: 10px 15px;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .btn:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <h1>Accessibility Compliance Tool</h1>
+    <label for="url">Enter URL to scan:</label>
+    <input type="text" id="url" placeholder="https://example.com" style="width: 300px;">
+    <button id="scan" class="btn">Scan Website</button>
+    <p id="status"></p>
+    
+    <div id="results">
+        <h2>Scan Results</h2>
+        <p id="compliancePercentage">Compliance: 0%</p>
+        <div id="violations"></div>
+        <button id="reScan" class="btn" disabled>Re-Scan</button>
+        <button id="export" class="btn" style="display: none;">Export Final Report</button>
+    </div>
+
+    <script>
+        let totalIssues = 0;
+        let unresolvedIssues = 0;
+
+        const calculateCompliance = () => {
+            const compliance = totalIssues === 0 ? 100 : ((totalIssues - unresolvedIssues) / totalIssues) * 100;
+            document.getElementById('compliancePercentage').textContent = `Compliance: ${compliance.toFixed(2)}%`;
+        };
+
+        const displayResults = (results) => {
+            const violationsDiv = document.getElementById('violations');
+            const reScanBtn = document.getElementById('reScan');
+            const exportBtn = document.getElementById('export');
+            violationsDiv.innerHTML = '';
+
+            if (results.violations.length > 0) {
+                totalIssues = results.violations.length;
+                unresolvedIssues = totalIssues;
+                let tableHTML = `
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Description</th>
+                                <th>Impact</th>
+                                <th>Proposed Fix</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+
+                results.violations.forEach((violation, index) => {
+                    tableHTML += `
+                        <tr>
+                            <td>${index + 1}</td>
+                            <td>${violation.description}</td>
+                            <td>${violation.impact || 'N/A'}</td>
+                            <td>
+                                ${violation.help || 'No fix available.'}
+                                <br><code>${violation.nodes[0]?.html || ''}</code>
+                            </td>
+                        </tr>
+                    `;
+                });
+
+                tableHTML += '</tbody></table>';
+                violationsDiv.innerHTML = tableHTML;
+                reScanBtn.disabled = false;
+            } else {
+                totalIssues = 0;
+                unresolvedIssues = 0;
+                violationsDiv.innerHTML = '<p>No accessibility issues found!</p>';
+                exportBtn.style.display = 'inline-block';
+            }
+
+            calculateCompliance();
+        };
+
+        const scanWebsite = async () => {
+            const url = document.getElementById('url').value.trim();
+            const status = document.getElementById('status');
+            if (!url) {
+                alert('Please enter a valid URL.');
+                return;
+            }
+
+            status.textContent = 'Scanning website...';
+
+            const iframe = document.createElement('iframe');
+            iframe.src = url;
+            iframe.style.display = 'none';
+            document.body.appendChild(iframe);
+
+            iframe.onload = async () => {
+                try {
+                    const results = await axe.run(iframe.contentDocument);
+                    displayResults(results);
+                } catch (error) {
+                    alert('Error scanning website: ' + error.message);
+                } finally {
+                    status.textContent = '';
+                    iframe.remove();
+                }
+            };
+        };
+
+        const exportReport = async () => {
+            const resultsDiv = document.getElementById('results');
+            const { jsPDF } = window.jspdf;
+
+            const doc = new jsPDF();
+            const canvas = await html2canvas(resultsDiv);
+            const imgData = canvas.toDataURL('image/png');
+            doc.addImage(imgData, 'PNG', 10, 10, 190, 0);
+            doc.save('Accessibility_Final_Report.pdf');
+        };
+
+        document.getElementById('scan').addEventListener('click', scanWebsite);
+        document.getElementById('reScan').addEventListener('click', scanWebsite);
+        document.getElementById('export').addEventListener('click', exportReport);
+    </script>
+</body>
+</html>
+
+Discussion Summary:
+1. User requested a tool to scan websites for accessibility compliance, specifically AODA compliance.
+2. The tool should identify issues, suggest fixes, and dynamically update as issues are resolved.
+3. A visually appealing report is generated for progress tracking and final compliance reporting.
+4. The implementation includes scanning via axe-core, dynamic compliance updates, and exporting a professional report.
